@@ -1,30 +1,60 @@
+;; Equipment Verification Contract
+;; Validates sporting goods manufacturers and their equipment
 
-;; title: equipment-verification
-;; version:
-;; summary:
-;; description:
+(define-data-var admin principal tx-sender)
 
-;; traits
-;;
+;; Map of verified manufacturers
+(define-map verified-manufacturers principal bool)
 
-;; token definitions
-;;
+;; Map of verified equipment
+(define-map verified-equipment
+  { manufacturer: principal, equipment-id: (string-utf8 36) }
+  {
+    name: (string-utf8 64),
+    category: (string-utf8 32),
+    verified: bool,
+    verification-date: uint
+  }
+)
 
-;; constants
-;;
+;; Public function to register a manufacturer
+(define-public (register-manufacturer (manufacturer principal))
+  (begin
+    (asserts! (is-eq tx-sender (var-get admin)) (err u100))
+    (ok (map-set verified-manufacturers manufacturer true))
+  )
+)
 
-;; data vars
-;;
+;; Public function to verify equipment
+(define-public (verify-equipment
+    (manufacturer principal)
+    (equipment-id (string-utf8 36))
+    (name (string-utf8 64))
+    (category (string-utf8 32)))
+  (begin
+    (asserts! (is-eq tx-sender (var-get admin)) (err u100))
+    (asserts! (default-to false (map-get? verified-manufacturers manufacturer)) (err u101))
+    (ok (map-set verified-equipment
+      { manufacturer: manufacturer, equipment-id: equipment-id }
+      {
+        name: name,
+        category: category,
+        verified: true,
+        verification-date: block-height
+      }
+    ))
+  )
+)
 
-;; data maps
-;;
+;; Read-only function to check if equipment is verified
+(define-read-only (is-equipment-verified (manufacturer principal) (equipment-id (string-utf8 36)))
+  (default-to
+    false
+    (get verified (map-get? verified-equipment { manufacturer: manufacturer, equipment-id: equipment-id }))
+  )
+)
 
-;; public functions
-;;
-
-;; read only functions
-;;
-
-;; private functions
-;;
-
+;; Read-only function to get equipment details
+(define-read-only (get-equipment-details (manufacturer principal) (equipment-id (string-utf8 36)))
+  (map-get? verified-equipment { manufacturer: manufacturer, equipment-id: equipment-id })
+)
